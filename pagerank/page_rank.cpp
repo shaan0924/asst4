@@ -58,4 +58,31 @@ void pageRank(Graph g, double* solution, double damping, double convergence)
      }
 
    */
+  bool converged = false;
+  while(!converged) {
+    float totalsum = 0.0;
+    float oldsum = 0.0;
+    for(int i = 0; i < numNodes; ++i) {
+      oldsum += solution[i];
+      float addedval = 0.0;
+      for(int j = 0; j < numNodes; ++j) {
+        addedval += solution[j]/outgoing_size(g,j);
+      }
+      solution[i] = addedval;
+      solution[i] = (damping * solution[i]) + (1.0 - damping)/numNodes;
+
+      float noedges = 0.0;
+      for(int j = 0; j < numNodes; ++j) {
+        if(outgoing_size(g,j) == 0)
+          noedges += solution[j];
+      }
+      solution[i] += (damping * noedges) / numNodes;
+      totalsum += solution[i];
+    }
+
+    float global_diff = std::abs(totalsum - oldsum);
+
+    converged = (global_diff < convergence);
+
+  }
 }
