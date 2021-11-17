@@ -65,6 +65,7 @@ void pageRank(Graph g, double* solution, double damping, double convergence)
     for(int i = 0; i < numNodes; ++i) {
       oldsum += solution[i];
       float addedval = 0.0;
+      #pragma omp parallel for reduction(+:addedval)
       for(int j = 0; j < numNodes; ++j) {
         addedval += solution[j]/outgoing_size(g,j);
       }
@@ -72,6 +73,7 @@ void pageRank(Graph g, double* solution, double damping, double convergence)
       solution[i] = (damping * solution[i]) + (1.0 - damping)/numNodes;
 
       float noedges = 0.0;
+      #pragma omp parallel for reduction(+:noedges)
       for(int j = 0; j < numNodes; ++j) {
         if(outgoing_size(g,j) == 0)
           noedges += solution[j];
