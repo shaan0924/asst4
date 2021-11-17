@@ -4,6 +4,7 @@
 #include <cmath>
 #include <omp.h>
 #include <utility>
+#include <iostream>
 
 #include "../common/CycleTimer.h"
 #include "../common/graph.h"
@@ -25,6 +26,7 @@ void pageRank(Graph g, double* solution, double damping, double convergence)
 
   int numNodes = num_nodes(g);
   double equal_prob = 1.0 / numNodes;
+  #pragma omp parallel for
   for (int i = 0; i < numNodes; ++i) {
     solution[i] = equal_prob;
   }
@@ -59,9 +61,12 @@ void pageRank(Graph g, double* solution, double damping, double convergence)
 
    */
   bool converged = false;
+  float totalsum = numNodes;
+  float oldsum = 0.0;
+  int iters = 0;
   while(!converged) {
-    float totalsum = 0.0;
-    float oldsum = 0.0;
+    oldsum = totalsum;
+    totalsum = 0.0;
 
     float addedval = 0.0;
     float noedges = 0.0;
@@ -74,13 +79,9 @@ void pageRank(Graph g, double* solution, double damping, double convergence)
       }
     }
 
-    #pragma omp parallel for reduction(+:oldsum,totalsum)
+    #pragma omp parallel for reduction(+:totalsum)
     for(int i = 0; i < numNodes; ++i) {
-      oldsum += solution[i];
-      
-      solution[i] = (damping * addedval) + (1.0 - damping)/numNodes;
-      
-      solution[i] += (damping * noedges) / numNodes;
+      solution[i] = (damping * addedval) + ((1.0 - damping)/numNodes) + ((damping * noedges) / numNodes);
       totalsum += solution[i];
     }
 
