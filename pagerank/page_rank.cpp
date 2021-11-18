@@ -26,9 +26,11 @@ void pageRank(Graph g, double* solution, double damping, double convergence)
 
   int numNodes = num_nodes(g);
   double equal_prob = 1.0 / numNodes;
+  double* prevvalues = new double[numNodes];
   #pragma omp parallel for
   for (int i = 0; i < numNodes; ++i) {
     solution[i] = equal_prob;
+    prevvalues[i] = equal_prob;
   }
   
   
@@ -61,31 +63,31 @@ void pageRank(Graph g, double* solution, double damping, double convergence)
 
    */
   bool converged = false;
-  float totalsum = numNodes;
-  float oldsum = 0.0;
-  int iters = 0;
+
   while(!converged) {
-    oldsum = totalsum;
-    totalsum = 0.0;
-
-    float addedval = 0.0;
-    float noedges = 0.0;
-    #pragma omp parallel for reduction(+:addedval, noedges)
-    for(int j = 0; j < numNodes; ++j) {
-      if(outgoing_size(g,j) == 0) {
-        noedges += solution[j];
-      } else {
-        addedval += solution[j]/outgoing_size(g,j);
-      }
-    }
-
-    #pragma omp parallel for reduction(+:totalsum)
+    
+    double global_diff = 0.0;
+    double noedges = 0.0;
+    #pragma omp parallel for reduction(+:noedges)
     for(int i = 0; i < numNodes; ++i) {
-      solution[i] = (damping * addedval) + ((1.0 - damping)/numNodes) + ((damping * noedges) / numNodes);
-      totalsum += solution[i];
+      if(outgoing_size(g,i) == 0)
+        noedges += damping * prevvalues[i]/numNodes;
+      
+      const Vertex* start = incoming_begin(g,i);
+      const Vertex* end = incoming_end(g,i);
+      double addedval = 0.0;
+      for(const Vertex* v = start; v!= end; v++) {
+        addedval += prevvalues[*v]/outgoing_size(g,*v);
+      }
+      solution[i] = (damping * addedval) + (1.0 - damping)/numNodes;
     }
 
-    float global_diff = std::abs(totalsum - oldsum);
+    #pragma omp parallel for reduction(+:global_diff)
+    for(int i = 0; i < numNodes; ++i) { 
+      solution[i] += noedges;
+      global_diff += std::abs(solution[i] - prevvalues[i]);
+      prevvalues[i] = solution[i];
+    }
 
     converged = (global_diff < convergence);
 
