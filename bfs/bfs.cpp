@@ -31,7 +31,7 @@ void top_down_step(
     vertex_set* new_frontier,
     int* distances)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic, 1000)
     for (int i=0; i<frontier->count; i++) {
 
         int node = frontier->vertices[i];
@@ -207,7 +207,10 @@ void bfs_bottom_up(Graph graph, solution* sol)
         frontier = new_frontier;
         new_frontier = tmp;
 
+        int* temp = flags;
         flags = newflags;
+        newflags = temp;
+
         
         #pragma omp parallel for
         for(int i = 0; i < graph->num_nodes; i++) {
