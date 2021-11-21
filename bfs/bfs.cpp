@@ -97,18 +97,17 @@ void bottom_up_step(
                 //add to new frontier and update newflags
 
                 if(flags[incoming] == 1) {
-                    //distances[i] = distances[incoming] + 1;
-                    if(__sync_bool_compare_and_swap(distances + i, NOT_VISITED_MARKER, distances[incoming] + 1)) {
+                    distances[i] = distances[incoming] + 1;
+                    //if(__sync_bool_compare_and_swap(distances + i, NOT_VISITED_MARKER, distances[incoming] + 1)) {}
 
-                        int index;
+                    int threadid = omp_get_thread_num();
+                    int index = frontierset[threadid]->count++;
 
-                        int threadid = omp_get_thread_num();
-                        index = frontierset[threadid]->count++;
+                    frontierset[threadid]->vertices[index] = i;
 
-                        frontierset[threadid]->vertices[index] = i;
-
-                        newflags[i] = 1;
-                    }
+                    newflags[i] = 1;
+                    //above causes segfault
+                    
                 }
             }
         }
