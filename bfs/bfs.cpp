@@ -5,6 +5,7 @@
 #include <string.h>
 #include <cstddef>
 #include <omp.h>
+#include <iostream>
 
 #include "../common/CycleTimer.h"
 #include "../common/graph.h"
@@ -97,16 +98,16 @@ void bottom_up_step(
                 //add to new frontier and update newflags
 
                 if(flags[incoming] == 1) {
+                    //int threadid = omp_get_thread_num();
+                    //int index = 0;
+                    //if(distances[i] == NOT_VISITED_MARKER) {
+                        //index = frontierset[threadid]->count++;
+
+                        
+                    //}
                     distances[i] = distances[incoming] + 1;
-                    //if(__sync_bool_compare_and_swap(distances + i, NOT_VISITED_MARKER, distances[incoming] + 1)) {}
-
-                    int threadid = omp_get_thread_num();
-                    int index = frontierset[threadid]->count++;
-
-                    frontierset[threadid]->vertices[index] = i;
-
+                    //frontierset[threadid]->vertices[index] = i;
                     newflags[i] = 1;
-                    //above causes segfault
                     
                 }
             }
@@ -223,9 +224,9 @@ void bfs_bottom_up(Graph graph, solution* sol)
         double start_time = CycleTimer::currentSeconds();
 #endif
 
-        for(int i = 0; i < maxthread; i++) {
-            vertex_set_clear(frontierset[i]);
-        }
+        //for(int i = 0; i < maxthread; i++) {
+            //vertex_set_clear(frontierset[i]);
+        //}
 
 
         bottom_up_step(graph, frontierset, flags, newflags, sol->distances);
@@ -236,13 +237,20 @@ void bfs_bottom_up(Graph graph, solution* sol)
 #endif
 
         // swap pointers
-        for(int i = 1; i < maxthread; i++) {
-            memcpy(frontierset[0]->vertices + frontierset[0]->count, frontierset[i]->vertices, frontierset[i]->count * sizeof(int));
-            frontierset[0]->count += frontierset[i]->count;
+        //for(int i = 1; i < maxthread; i++) {
+            //memcpy(frontierset[0]->vertices + frontierset[0]->count, frontierset[i]->vertices, frontierset[i]->count * sizeof(int));
+            //frontierset[0]->count += frontierset[i]->count;
+        //}
+        //vertex_set* tmp = frontier;
+        //frontier = frontierset[0];
+        //frontierset[0] = tmp;
+
+        vertex_set_clear(frontier);
+        for(int i = 0; i < graph->num_nodes; i++) {
+            if(newflags[i] == 1) {
+                frontier->count++;
+            }
         }
-        vertex_set* tmp = frontier;
-        frontier = frontierset[0];
-        frontierset[0] = tmp;
 
         int* temp = flags;
         flags = newflags;
@@ -326,7 +334,7 @@ void bfs_hybrid(Graph graph, solution* sol)
                 if(flags[i] == 1) {
                     mf += outgoing_size(graph, i);
                 }
-                if(sol->distances[i] != NOT_VISITED_MARKER) {
+                if(sol->distances[i] == NOT_VISITED_MARKER) {
                     mu += incoming_size(graph, i);
                 }
             }
