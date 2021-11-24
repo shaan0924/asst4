@@ -98,7 +98,7 @@ void bottom_up_step(
                 //add to new frontier and update newflags
 
                 if(flags[incoming] == 1) {
-                    int threadid = omp_get_thread_num();
+                    //int threadid = omp_get_thread_num();
                     //int index;
                     //index = frontierset[threadid]->count++;
                     //frontierset[threadid]->vertices[index] = i;
@@ -172,8 +172,6 @@ void bfs_top_down(Graph graph, solution* sol) {
         frontier = frontierset[0];
         frontierset[0] = tmp;
     }
-    delete[] frontierset;
-    delete[] lists;
 }
 
 void bfs_bottom_up(Graph graph, solution* sol)
@@ -266,8 +264,6 @@ void bfs_bottom_up(Graph graph, solution* sol)
             newflags[i] = 0;
         }
     }
-    delete[] lists;
-    delete[] frontierset;
 
 
 }
