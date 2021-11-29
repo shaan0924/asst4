@@ -30,7 +30,7 @@ void top_down_step(
     Graph g,
     int* flags,
     int* newflags,
-    int count,
+    int& count,
     int* distances)
 {
     int chunkset = 1000;
@@ -71,7 +71,7 @@ void bottom_up_step(
     Graph g,
     int* flags,
     int* newflags,
-    int count,
+    int& count,
     int* distances)
 {
     //iterate through all nodes
