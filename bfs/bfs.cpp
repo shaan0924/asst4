@@ -30,6 +30,8 @@ void top_down_step(
     Graph g,
     vertex_set* frontier,
     vertex_set** frontierset,
+    int* flags,
+    int* newflags,
     int* distances)
 {
     int chunkset = 1000;
@@ -39,28 +41,31 @@ void top_down_step(
 
 
     #pragma omp parallel for schedule(dynamic, chunkset)
-    for (int i=0; i<frontier->count; i++) {
+    for (int i=0; i<g->num_nodes; i++) {
+        if(flags[i] == 1) {
 
-        int node = frontier->vertices[i];
+            int node = i;
 
-        int start_edge = g->outgoing_starts[node];
-        int end_edge = (node == g->num_nodes - 1)
+            int start_edge = g->outgoing_starts[node];
+            int end_edge = (node == g->num_nodes - 1)
                            ? g->num_edges
                            : g->outgoing_starts[node + 1];
 
-        // attempt to add all neighbors to the new frontier
-        for (int neighbor=start_edge; neighbor<end_edge; neighbor++) {
-            int outgoing = g->outgoing_edges[neighbor];
+            // attempt to add all neighbors to the new frontier
+            for (int neighbor=start_edge; neighbor<end_edge; neighbor++) {
+                int outgoing = g->outgoing_edges[neighbor];
 
-            if (distances[outgoing] == NOT_VISITED_MARKER) {
+                if (distances[outgoing] == NOT_VISITED_MARKER) {
 
-                if(__sync_bool_compare_and_swap(distances + outgoing, NOT_VISITED_MARKER, distances[node] + 1)) {
+                    if(__sync_bool_compare_and_swap(distances + outgoing, NOT_VISITED_MARKER, distances[node] + 1)) {
 
-                    int index;
-                    int threadid = omp_get_thread_num();
-                    index = frontierset[threadid]->count++;
+                        //int index;
+                        //int threadid = omp_get_thread_num();
+                        //index = frontierset[threadid]->count++;
 
-                    frontierset[threadid]->vertices[index] = outgoing;
+                        //frontierset[threadid]->vertices[index] = outgoing;
+                        newflags[outgoing] = 1;
+                    }
                 }
             }
         }
@@ -135,6 +140,9 @@ void bfs_top_down(Graph graph, solution* sol) {
         frontierset[i] = lists + i;
     }
 
+    int* flags = (int*) calloc(graph->num_nodes, sizeof(int));
+    int* newflags = (int*) calloc(graph->num_nodes, sizeof(int));
+
 
     // initialize all nodes to NOT_VISITED
     #pragma omp parallel for
@@ -145,8 +153,11 @@ void bfs_top_down(Graph graph, solution* sol) {
     // setup frontier with the root node
     frontier->vertices[frontier->count++] = ROOT_NODE_ID;
     sol->distances[ROOT_NODE_ID] = 0;
+    flags[ROOT_NODE_ID] = 1;
 
-    while (frontier->count != 0) {
+    int count = 1;
+
+    while (count != 0) {
 
 #ifdef VERBOSE
         double start_time = CycleTimer::currentSeconds();
@@ -156,7 +167,7 @@ void bfs_top_down(Graph graph, solution* sol) {
             vertex_set_clear(frontierset[i]);
         }
 
-        top_down_step(graph, frontier, frontierset, sol->distances);
+        top_down_step(graph, frontier, frontierset, flags, newflags, sol->distances);
 
 #ifdef VERBOSE
     double end_time = CycleTimer::currentSeconds();
@@ -164,13 +175,28 @@ void bfs_top_down(Graph graph, solution* sol) {
 #endif
 
         // swap pointers
-        for(int i = 1; i < maxthread; i++) {
-            memcpy(frontierset[0]->vertices + frontierset[0]->count, frontierset[i]->vertices, frontierset[i]->count * sizeof(int));
-            frontierset[0]->count += frontierset[i]->count;
+        //for(int i = 1; i < maxthread; i++) {
+            //memcpy(frontierset[0]->vertices + frontierset[0]->count, frontierset[i]->vertices, frontierset[i]->count * sizeof(int));
+            //frontierset[0]->count += frontierset[i]->count;
+        //}
+        //vertex_set* tmp = frontier;
+        //frontier = frontierset[0];
+        //frontierset[0] = tmp;
+
+        int* temp = flags;
+        flags = newflags;
+        newflags = temp;
+
+        count = 0;
+
+        
+        #pragma omp parallel for reduction(+:count)
+        for(int i = 0; i < graph->num_nodes; i++) {
+            count += flags[i];
+            newflags[i] = 0;
         }
-        vertex_set* tmp = frontier;
-        frontier = frontierset[0];
-        frontierset[0] = tmp;
+
+
     }
 }
 
@@ -305,7 +331,7 @@ void bfs_hybrid(Graph graph, solution* sol)
     sol->distances[ROOT_NODE_ID] = 0;
 
     //start with top down step
-    top_down_step(graph, frontier, frontierset, sol->distances);
+    top_down_step(graph, frontier, frontierset, flags, newflags, sol->distances);
     bool TB = true;
     for(int i = 1; i < maxthread; i++) {
         memcpy(frontierset[0]->vertices + frontierset[0]->count, frontierset[i]->vertices, frontierset[i]->count * sizeof(int));
@@ -350,13 +376,13 @@ void bfs_hybrid(Graph graph, solution* sol)
                 bottom_up_step(graph, frontierset, flags, newflags, sol->distances);
             } else {
                 //std::cout << "TD" << std::endl;
-                top_down_step(graph, frontier, frontierset, sol->distances);
+                top_down_step(graph, frontier, frontierset, flags, newflags, sol->distances);
             }
         } else {
             if(frontier->count < (graph->num_nodes)/beta) {
                 TB = true;
                 //std::cout << "TD" << std::endl;
-                top_down_step(graph, frontier, frontierset, sol->distances);
+                top_down_step(graph, frontier, frontierset, flags, newflags, sol->distances);
             } else {
                 //std::cout << "BU" << std::endl;
                 bottom_up_step(graph, frontierset, flags, newflags, sol->distances);
